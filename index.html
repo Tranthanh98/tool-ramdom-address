@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      #input-value {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        position: relative;
+        z-index: 2;
+        float: left;
+        width: 300px;
+        margin-bottom: 0;
+        height: 34px;
+        padding: 6px 12px;
+        font-size: 14px;
+        line-height: 1.42857143;
+        color: #555;
+        background-color: #fff;
+        background-image: none;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        -webkit-box-shadow: inset 0 1px 1px rgb(0 0 0 / 8%);
+        box-shadow: inset 0 1px 1px rgb(0 0 0 / 8%);
+      }
+    </style>
+
+    <script
+      src="./httpClient.js"
+      type="module"
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cheerio/0.22.0/index.js"></script>
+  </head>
+  <body>
+    <input id="input-value" type="text" />
+
+    <button onclick="randomAddress()">Download file</button>
+
+    <script type="application/javascript">
+      async function randomAddress(url, quantity) {
+        console.log("start random");
+
+        const request = new RestService()
+          .setPath(
+            `https://www.bestrandoms.com/random-address-in-fr?quantity=11`
+          )
+          .get();
+
+        const res = await request;
+
+        const document = cheerio.load(res.data);
+
+        const result = [];
+
+        document("li[class=col-sm-6]").each((_, el) => {
+          const oneItem = {};
+          document(el)
+            .contents()
+            .each((_index, item) => {
+              const key = document(item)
+                .find("span b")
+                .text()
+                .trim()
+                .replace(":", "");
+              let value = document(document(item).find("span").contents()[1])
+                .text()
+                .trim();
+              if (!value) {
+                value = document(document(item).contents()[1]).text().trim();
+              }
+
+              oneItem[key] = value;
+            });
+
+          result.push(oneItem);
+        });
+
+        console.log("result:", result);
+
+        const exportData = [];
+
+        for (const i of result) {
+          let addressValue = `${i.Street}, ${i.City}`;
+
+          if (i["State/province/area"]) {
+            addressValue += `, ${i["State/province/area"]}`;
+          }
+
+          if (i["Zip code"]) {
+            addressValue += `, ${i["Zip code"]}`;
+          }
+
+          addressValue += `, ${i.Country}`;
+
+          const countryCode = i["Country calling code"].replace("+", "");
+
+          let numberPhone = i["Phone number"];
+
+          if (numberPhone.startsWith("0")) {
+            numberPhone = numberPhone.substring(1);
+          }
+
+          numberPhone = countryCode + numberPhone;
+
+          exportData.push({ numberPhone, addressValue });
+        }
+
+        console.log("result:", exportData);
+
+        const blob = new Blob([exportData], {
+          type: "text/csv;charset=utf-8;",
+        });
+
+        await fs.writeFileSync("file-export.csv", blob.arrayBuffer());
+      }
+    </script>
+  </body>
+</html>
